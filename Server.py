@@ -4,14 +4,6 @@ from sys import argv
 from socket import *
 from datetime import datetime
 
-# Get the server port from command line arguments
-serverPort = int(argv[1])
-
-# Create a TCP/IP socket
-serverSocket = socket(AF_INET, SOCK_STREAM)
-serverSocket.bind(('', serverPort))  # Bind the socket to the server address and port
-serverSocket.listen(5)  # Enable the server to accept connections (5 is the max number of queued connections)
-
 # Open the log file in append mode
 log_file = open('root/log.txt', 'a')
 
@@ -142,7 +134,6 @@ def process_message(msg: str, clientSocket, client_address):
         file = open(f"root/{path}.{extension}", mode)
 
         # Extract the body of the request (content after the empty line)
-        idx = lines.index('')
         request_body = '\n'.join(lines[idx + 1:])
 
         # Write the request body (data sent with POST) to the file
@@ -159,6 +150,14 @@ def process_message(msg: str, clientSocket, client_address):
 
 # Main server loop to handle incoming connections
 if __name__ == '__main__':
+    # Get the server port from command line arguments
+    serverPort = int(argv[1])
+
+    # Create a TCP/IP socket
+    serverSocket = socket(AF_INET, SOCK_STREAM)
+    serverSocket.bind(('', serverPort))  # Bind the socket to the server address and port
+    serverSocket.listen(5)  # Enable the server to accept connections (5 is the max number of queued connections)
+
     while True:
         connectionSocket, addr = serverSocket.accept()  # Accept a new connection
         message = connectionSocket.recv(2048).decode()  # Receive the request message
