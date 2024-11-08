@@ -68,6 +68,7 @@ def prepare_response(status_code, content_type, content, clientSocket, connectio
 
 # Function to process incoming requests
 def process_message(msg: str, clientSocket, client_address):
+    print(msg)
     msg = msg.rstrip()  # Remove trailing whitespace characters
     lines = msg.split('\r\n')  # Split the message into lines
     request_line = lines[0].split(' ')  # Extract the request line (first line of the HTTP request)
@@ -134,6 +135,7 @@ def process_message(msg: str, clientSocket, client_address):
         file = open(f"root/{path}.{extension}", mode)
 
         # Extract the body of the request (content after the empty line)
+        idx = lines.index('')
         request_body = '\n'.join(lines[idx + 1:])
 
         # Write the request body (data sent with POST) to the file
