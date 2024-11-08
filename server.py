@@ -16,13 +16,13 @@ def write_to_log_file(client_address, method=None, connection=None):
         # Log request details if a method is provided
         if method is not None:
             log_file.write(
-                f"{datetime.now()} | INFO | Request received | Method: {method} | Client Address: {client_address[0]} | "
+                f"{datetime.now()} | INFO | Request received | Method: {method} | Client IP Address: {client_address[0]} | "
                 f"Client Port: {client_address[1]} | Connection: {connection}\n"
             )
         # Log connection timeout if no method is provided
         else:
             log_file.write(
-                f"{datetime.now()} | INFO | Connection Timeout | Client Address: {client_address[0]} | "
+                f"{datetime.now()} | INFO | Connection Timeout | Client IP Address: {client_address[0]} | "
                 f"Client Port: {client_address[1]}\n"
             )
         log_file.flush()  # Ensure log entry is written immediately
@@ -153,6 +153,9 @@ def process_message(msg: str, clientSocket, client_address):
 
         # Determine mode for writing (binary for images)
         mode = 'w'
+        if extension == 'plain':
+            extension = 'txt'
+        
         if 'image' in ctype:
             mode = 'wb'
         file = open(f"root/{path}.{extension}", mode)

@@ -1,0 +1,2 @@
+client_get blog.html 123 123
+client_post test.txt 123
