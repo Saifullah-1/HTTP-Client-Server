@@ -12,21 +12,28 @@ count_lock = threading.Lock()
 
 
 # Function to write log entries to the log file
-def write_to_log_file(client_address, method=None):
+def write_to_log_file(client_address, new_connection=False, close_connection=False):
     # Ensure only one thread writes to the log at a time
     with lock:
-        # Log request details if a method is provided
-        if method is not None:
+        # Log request details if a new connection was established
+        if new_connection:
             log_file.write(
-                f"{datetime.now()} | INFO | Request received | Method: {method} | Client IP Address: {client_address[0]} |"
+                f"{datetime.now()} | New Connection <Active Connections: {connection_count}> | Client IP Address: {client_address[0]} |"
                 f"Client Port: {client_address[1]}\n"
             )
-        # Log connection timeout if no method is provided
         else:
-            log_file.write(
-                f"{datetime.now()} | INFO | Connection Timeout <Active Connections {connection_count}> | Client IP "
-                f"Address: {client_address[0]} | Client Port: {client_address[1]}\n"
-            )
+            if not close_connection:
+                log_file.write(
+                    f"{datetime.now()} | INFO | Request received | Client IP Address: {client_address[0]} |"
+                    f"Client Port: {client_address[1]}\n"
+                )
+            # Log connection timeout if no method is provided
+            else:
+                log_file.write(
+                    f"{datetime.now()} | Connection Timeout <Active Connections: {connection_count}> | Client IP "
+                    f"Address: {client_address[0]} | Client Port: {client_address[1]}\n"
+                )
+
         log_file.flush()  # Ensure log entry is written immediately
 
 
@@ -127,7 +134,7 @@ def process_message(msg: str, clientSocket, client_address):
     method, path, content_type, request_body = parse_message(msg)  # Parse the request
 
     # Start a new thread to log the request
-    thread = threading.Thread(target=write_to_log_file, args=(client_address, method,))
+    thread = threading.Thread(target=write_to_log_file, args=(client_address, False,))
     thread.start()
 
     # Process GET requests
@@ -188,6 +195,13 @@ def process_message(msg: str, clientSocket, client_address):
 
 def receive_data(client_socket, client_address):
     global connection_count
+
+    with count_lock:
+        connection_count += 1
+
+    thread = threading.Thread(target=write_to_log_file, args=(client_address, True,))
+    thread.start()
+
     try:
         while True:
             chunk = client_socket.recv(2048)
@@ -195,11 +209,14 @@ def receive_data(client_socket, client_address):
                 break  # No more data, exit the loop
             thread = threading.Thread(target=process_message, args=(chunk, connectionSocket, addr))
             thread.start()
-            thread.join()
+        with count_lock:
+            connection_count -= 1
+            write_to_log_file(client_address, False, True)
     except ConnectionResetError:
         with count_lock:
             connection_count -= 1
-            write_to_log_file(client_address)
+            write_to_log_file(client_address, False, True)
+    thread.join()
 
 
 # Main server loop to handle incoming connections
@@ -215,8 +232,6 @@ if __name__ == '__main__':
     # Accept connections and process each in a new thread
     while True:
         connectionSocket, addr = serverSocket.accept()  # Accept a new client connection
-        with count_lock:
-            connection_count += 1
         # message = connectionSocket.recv(2048).decode()  # Receive the request message
         receive_data(connectionSocket, addr)
         # Start a new thread to process the request
