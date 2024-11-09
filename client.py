@@ -7,9 +7,9 @@ def send_request(line):
     method, path, host, port = parse_command(line)
     request = form_request(method, path, file_type(path))
     print(request)
-    sock.send(request.encode())
+    sock.sendall(request.encode())
     response = sock.recv(2048).decode()
-    print(response.split("\r\n")[0])
+    print('Response Received', response.split("\r\n")[0], sep='\n')
     if method == "POST":
         print(response.split("\r\n")[0])
     else:
