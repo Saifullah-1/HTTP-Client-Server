@@ -7,6 +7,8 @@ from datetime import datetime
 # Open the log file in append mode for storing logs
 log_file = open('root/log.txt', 'a')
 lock = threading.Lock()  # Initialize a lock for thread-safe logging
+connection_count = 0
+count_lock = threading.Lock()
 
 
 # Function to write log entries to the log file
@@ -48,6 +50,8 @@ def get_content_type(extension):
 
 # Function to prepare and send the HTTP response
 def prepare_response(status_code, content_type, content, clientSocket, connection, client_address):
+    global connection_count
+
     # Format the current date and time in GMT
     now = datetime.now(pytz.timezone("GMT"))
 
@@ -68,9 +72,11 @@ def prepare_response(status_code, content_type, content, clientSocket, connectio
         clientSocket.send(content)  # Send binary content separately
 
     # Close connection if specified, and log the event
-    if connection == 'close':
-        clientSocket.close()
-        write_to_log_file(client_address)
+    # if connection == 'close':
+    #     with count_lock:
+    #         connection_count -= 1
+    #     clientSocket.close()
+    #     write_to_log_file(client_address)
 
 
 # Function to parse an HTTP request message
@@ -106,13 +112,17 @@ def parse_message(msg):
 
 # Function to process incoming requests
 def process_message(msg: str, clientSocket, client_address):
-    # Handle empty message (client disconnected)
-    if len(msg) == 0:
-        clientSocket.close()
-        return
+    global connection_count
+
+    # # Handle empty message (client disconnected)
+    # if len(msg) == 0:
+    #     clientSocket.send("OK".encode())
+    #     return
+
+    with count_lock:
+        connection_count += 1
 
     msg = msg.rstrip()  # Remove trailing whitespace
-    print(msg)  # Display request for debugging
     method, path, connection, content_type, request_body = parse_message(msg)  # Parse the request
 
     # Start a new thread to log the request
@@ -151,6 +161,9 @@ def process_message(msg: str, clientSocket, client_address):
         extension = content_type.split('/')[-1]
         ctype = content_type.split('/')[0]
 
+        if extension == 'plain':
+            extension = 'txt'
+
         # Determine mode for writing (binary for images)
         mode = 'w'
         if extension == 'plain':
@@ -172,6 +185,18 @@ def process_message(msg: str, clientSocket, client_address):
     thread.join()
 
 
+def receive_data(client_socket):
+    data = b''  # Initialize an empty byte string to collect data
+    while True:
+        print("Request Received")
+        chunk = client_socket.recv(1024).decode()
+        print(chunk)
+        if not chunk:
+            break  # No more data, exit the loop
+        threading.Thread(target=process_message, args=(chunk, connectionSocket, addr)).start()
+        # data += chunk  # Append the received chunk
+
+
 # Main server loop to handle incoming connections
 if __name__ == '__main__':
     # Get the server port from command-line arguments
@@ -185,6 +210,6 @@ if __name__ == '__main__':
     # Accept connections and process each in a new thread
     while True:
         connectionSocket, addr = serverSocket.accept()  # Accept a new client connection
-        message = connectionSocket.recv(2048).decode()  # Receive the request message
+        # message = connectionSocket.recv(2048).decode()  # Receive the request message
+        receive_data(connectionSocket)
         # Start a new thread to process the request
-        threading.Thread(target=process_message, args=(message, connectionSocket, addr)).start()
