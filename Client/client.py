@@ -1,4 +1,5 @@
 from sys import argv
+import time
 from socket import *
 
 
@@ -17,6 +18,11 @@ def send_request(line):
     else:
         status, body = response.split(b'\r\n\r\n')
         status = status.decode("UTF-8")    
+        if status.split("\r\n")[0].split(" ")[1] == "404":
+            print("File not found.")
+            exit(0)
+        print(status.split("\r\n")[0])
+        
         mode = "w"    
         if file_type(path).split("/")[0] == "image":
             mode = "wb"
@@ -98,7 +104,12 @@ if __name__ == "__main__":
         exit(0)
     
     for line in file:
-        send_request(line)
+        try:
+            start = time.time()
+            send_request(line)
+        except ConnectionAbortedError:
+            end = time.time()
+            print(f"Connection aborted due to inactivity. Time taken: {end-start}")
     file.close()
         
 # client_get file-path host-name (port-number)
