@@ -188,8 +188,8 @@ def process_message(msg: str, clientSocket, client_address):
 def receive_data(client_socket):
     data = b''  # Initialize an empty byte string to collect data
     while True:
-        print("Request Received")
         chunk = client_socket.recv(1024).decode()
+        print("Request Received")
         print(chunk)
         if not chunk:
             break  # No more data, exit the loop
