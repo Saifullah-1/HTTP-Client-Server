@@ -1,0 +1,5 @@
+client_get blog.html 123 123
+client_post test.txt 123
+client_get index.html 123 123
+client_get macbook.webp 123 123
+client_get index.txt 123 123
