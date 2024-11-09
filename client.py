@@ -7,15 +7,21 @@ def send_request(line):
     method, path, host, port = parse_command(line)
     request = form_request(method, path, file_type(path))
     print(request)
-    sock.sendall(request.encode())
-    response = sock.recv(2048).decode()
-    print('Response Received', response.split("\r\n")[0], sep='\n')
+
+    sock.send(request.encode())
+    response = sock.recv(1024 * (10**6))
+    
     if method == "POST":
-        print(response.split("\r\n")[0])
+        status = response.decode("UTF-8")
+        print(status.split("\r\n")[0])
     else:
-        body = response.split("\r\n")[-1]
+        status, body = response.split(b'\r\n\r\n')
+        status = status.decode("UTF-8")    
+        mode = "w"    
+        if file_type(path).split("/")[0] == "image":
+            mode = "wb"
         saved_file_path = path.split("/")[-1]
-        file = open(saved_file_path, "w")
+        file = open(saved_file_path, mode)
         file.write(body)
         file.close()
 
