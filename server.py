@@ -18,14 +18,14 @@ def write_to_log_file(client_address, method=None, connection=None):
         # Log request details if a method is provided
         if method is not None:
             log_file.write(
-                f"{datetime.now()} | INFO | Request received | Method: {method} | Client IP Address: {client_address[0]} | "
+                f"{datetime.now()} | INFO | Request received | Method: {method} | Client IP Address: {client_address[0]} |"
                 f"Client Port: {client_address[1]} | Connection: {connection}\n"
             )
         # Log connection timeout if no method is provided
         else:
             log_file.write(
-                f"{datetime.now()} | INFO | Connection Timeout | Client IP Address: {client_address[0]} | "
-                f"Client Port: {client_address[1]}\n"
+                f"{datetime.now()} | INFO | Connection Timeout <Active Connections {connection_count}> | Client IP "
+                f"Address: {client_address[0]} | Client Port: {client_address[1]}\n"
             )
         log_file.flush()  # Ensure log entry is written immediately
 
@@ -49,7 +49,7 @@ def get_content_type(extension):
 
 
 # Function to prepare and send the HTTP response
-def prepare_response(status_code, content_type, content, clientSocket, connection, client_address):
+def prepare_response(status_code, content_type, content, clientSocket):
     global connection_count
 
     # Format the current date and time in GMT
@@ -64,19 +64,15 @@ def prepare_response(status_code, content_type, content, clientSocket, connectio
     response += '\r\n'  # Blank line to separate headers and body
 
     # Send response differently based on content type
-    if status_code == '404 Not Found' or 'image' not in content_type:
+    if 'image' not in content_type:
         response += content  # Append content directly for text responses
         clientSocket.send(response.encode())  # Send response as a single message
     else:
-        clientSocket.send(response.encode())  # Send headers first
-        clientSocket.send(content)  # Send binary content separately
+        response = response.encode()
+        response += content
+        clientSocket.send(response)
 
-    # Close connection if specified, and log the event
-    # if connection == 'close':
-    #     with count_lock:
-    #         connection_count -= 1
-    #     clientSocket.close()
-    #     write_to_log_file(client_address)
+    print("Response Sent", response, sep='\n')
 
 
 # Function to parse an HTTP request message
@@ -114,14 +110,6 @@ def parse_message(msg):
 def process_message(msg: str, clientSocket, client_address):
     global connection_count
 
-    # # Handle empty message (client disconnected)
-    # if len(msg) == 0:
-    #     clientSocket.send("OK".encode())
-    #     return
-
-    with count_lock:
-        connection_count += 1
-
     msg = msg.rstrip()  # Remove trailing whitespace
     method, path, connection, content_type, request_body = parse_message(msg)  # Parse the request
 
@@ -145,16 +133,16 @@ def process_message(msg: str, clientSocket, client_address):
             file = open(f"root/{path}", mode)
             file_content = file.read()  # Read file content
             status_code = '200 OK'
-            prepare_response(status_code, content_type, file_content, clientSocket, connection, client_address)
+            prepare_response(status_code, content_type, file_content, clientSocket)
             file.close()  # Close the file after reading
 
         except FileNotFoundError:
             # Serve a custom 404 error page if the file is not found
-            file = open(f"root/page_not_found.html")
-            file_content = file.read()
+            # file = open(f"root/page_not_found.html")
+            # file_content = file.read()
             status_code = '404 Not Found'
-            prepare_response(status_code, 'text/html', file_content, clientSocket, connection, client_address)
-            file.close()
+            prepare_response(status_code, 'text/html', '', clientSocket)
+            # file.close()
 
     # Process POST requests (saving data sent by the client)
     else:
@@ -179,22 +167,30 @@ def process_message(msg: str, clientSocket, client_address):
 
         # Send a successful response
         status_code = '200 OK'
-        prepare_response(status_code, content_type, request_body, clientSocket, connection, client_address)
+        prepare_response(status_code, content_type, '', clientSocket)
 
     # Wait for the logging thread to finish before exiting
     thread.join()
 
 
-def receive_data(client_socket):
-    data = b''  # Initialize an empty byte string to collect data
-    while True:
-        chunk = client_socket.recv(1024).decode()
-        print("Request Received")
-        print(chunk)
-        if not chunk:
-            break  # No more data, exit the loop
-        threading.Thread(target=process_message, args=(chunk, connectionSocket, addr)).start()
-        # data += chunk  # Append the received chunk
+def receive_data(client_socket, client_address):
+    global connection_count
+    try:
+        while True:
+            chunk = client_socket.recv(2048).decode()
+            print("---------------------------------------------------------------------------------------------------")
+            print("Request Received")
+            print(chunk)
+            if not chunk:
+                break  # No more data, exit the loop
+            thread = threading.Thread(target=process_message, args=(chunk, connectionSocket, addr))
+            thread.start()
+            thread.join()
+
+    except ConnectionResetError:
+        with count_lock:
+            connection_count -= 1
+            write_to_log_file(client_address)
 
 
 # Main server loop to handle incoming connections
@@ -210,6 +206,8 @@ if __name__ == '__main__':
     # Accept connections and process each in a new thread
     while True:
         connectionSocket, addr = serverSocket.accept()  # Accept a new client connection
+        with count_lock:
+            connection_count += 1
         # message = connectionSocket.recv(2048).decode()  # Receive the request message
-        receive_data(connectionSocket)
+        receive_data(connectionSocket, addr)
         # Start a new thread to process the request
