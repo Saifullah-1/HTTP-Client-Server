@@ -74,27 +74,28 @@ def prepare_response(status_code, content_type, content, clientSocket):
     # Send response differently based on content type
     if 'image' not in content_type:
         response += content  # Append content directly for text responses
-        clientSocket.send(response.encode())  # Send response as a single message
+        clientSocket.sendall(response.encode())  # Send response as a single message
     else:
         response = response.encode()
-        response += content
-        clientSocket.send(response)
-
+        if content :
+            response += content 
+        clientSocket.sendall(response)
+    
     print(content)
 
 
 # Function to parse an HTTP request message
 def parse_message(msg):
     header, body = msg.split(b'\r\n\r\n')
-    header = header.decode()
+    header = header.decode("UTF-8")
     try:
-        body = body.decode()
+        body = body.decode("UTF-8")
     except UnicodeDecodeError:
         print("Image")
 
     print()
     print("<<<< Request Received")
-    print(header, body, sep='\r\n')
+    print(header, body, type(body), sep='\r\n')
     print()
 
     lines = header.split('\r\n')  # Split message into lines
@@ -181,7 +182,10 @@ def process_message(msg: str, clientSocket, client_address):
         file = open(f"root/{path}.{extension}", mode)
 
         # Write request body to file
-        file.writelines(request_body)
+        print("I'm gonna write now to the file")
+        print(type(request_body))
+        print("="*20)
+        file.write(request_body)
         file.close()
 
         # Send a successful response
@@ -211,7 +215,7 @@ def receive_data(client_socket, client_address):
             client_socket.settimeout(new_timeout)
 
             try:
-                chunk = client_socket.recv(2048)
+                chunk = client_socket.recv(1024*100)
                 if not chunk:
                     break  # No more data, exit the loop
 
