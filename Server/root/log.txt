@@ -1,7 +1,16 @@
-2024-11-09 17:35:16.909084 | New Connection <Active Connections: 1> | Client IP Address: 127.0.0.1 |Client Port: 53290
-2024-11-09 17:35:18.138569 | INFO | Request received | Client IP Address: 127.0.0.1 |Client Port: 53290
-2024-11-09 17:35:18.288218 | INFO | Request received | Client IP Address: 127.0.0.1 |Client Port: 53290
-2024-11-09 17:35:18.438451 | INFO | Request received | Client IP Address: 127.0.0.1 |Client Port: 53290
-2024-11-09 17:35:18.586609 | INFO | Request received | Client IP Address: 127.0.0.1 |Client Port: 53290
-2024-11-09 17:35:18.747734 | INFO | Request received | Client IP Address: 127.0.0.1 |Client Port: 53290
-2024-11-09 17:35:18.905267 | Connection Timeout <Active Connections: 0> | Client IP Address: 127.0.0.1 | Client Port: 53290
+2024-11-10 20:05:49.143473 | Establishing new connection <Active Connections 1> | Client IP Address: 192.168.1.254 |Client Port: 55479
+2024-11-10 20:05:56.318579 | INFO | Request received | Client IP Address: 192.168.1.254 |Client Port: 55479
+2024-11-10 20:07:45.207359 | Establishing new connection <Active Connections 2> | Client IP Address: 192.168.1.254 |Client Port: 55652
+2024-11-10 20:07:52.335497 | INFO | Request received | Client IP Address: 192.168.1.254 |Client Port: 55652
+2024-11-10 20:08:13.500186 | Establishing new connection <Active Connections 3> | Client IP Address: 192.168.1.254 |Client Port: 55710
+2024-11-10 20:08:15.799444 | INFO | Request received | Client IP Address: 192.168.1.254 |Client Port: 55710
+2024-11-10 20:13:42.080590 | Establishing new connection <Active Connections 1> | Client IP Address: 127.0.0.1 |Client Port: 56214
+2024-11-10 20:13:42.081588 | Establishing new connection <Active Connections 2> | Client IP Address: 127.0.0.1 |Client Port: 56215
+2024-11-10 20:13:42.081588 | INFO | Request received | Client IP Address: 127.0.0.1 |Client Port: 56215
+2024-11-10 20:13:42.329825 | Establishing new connection <Active Connections 3> | Client IP Address: 127.0.0.1 |Client Port: 56216
+2024-11-10 20:13:49.004527 | Connection Timeout <Active Connections 2> | Client IP Address: 127.0.0.1 | Client Port: 56216
+2024-11-10 20:13:52.086569 | Connection Timeout <Active Connections 1> | Client IP Address: 127.0.0.1 | Client Port: 56214
+2024-11-10 20:13:52.086569 | Connection Timeout <Active Connections 0> | Client IP Address: 127.0.0.1 | Client Port: 56215
+2024-11-10 20:13:53.441437 | Establishing new connection <Active Connections 1> | Client IP Address: 127.0.0.1 |Client Port: 56233
+2024-11-10 20:13:53.442436 | INFO | Request received | Client IP Address: 127.0.0.1 |Client Port: 56233
+2024-11-10 20:14:13.451566 | Connection Timeout <Active Connections 0> | Client IP Address: 127.0.0.1 | Client Port: 56233

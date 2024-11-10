@@ -1,12 +1,11 @@
 import pytz
 import threading
-import time
 from sys import argv
 from socket import *
 from datetime import datetime
 
 # Open the log file in append mode for storing logs
-log_file = open ('root/log.txt', 'a')
+log_file = open('root/log.txt', 'a')
 lock = threading.Lock()  # Initialize a lock for thread-safe logging
 connection_count = 0
 total_time = 20
@@ -14,20 +13,25 @@ count_lock = threading.Lock()
 
 
 # Function to write log entries to the log file
-def write_to_log_file(client_address, method=None):
+def write_to_log_file(client_address, new_connection=False, is_closed=False):
     # Ensure only one thread writes to the log at a time
     with lock:
         # Log request details if a method is provided
-        if method is not None:
-            log_file.write(
-                f"{datetime.now()} | INFO | Request received | Method: {method} | Client IP Address: {client_address[0]} |"
-                f"Client Port: {client_address[1]}\n"
-            )
-        # Log connection timeout if no method is provided
+        if not new_connection:
+            if not is_closed:
+                log_file.write(
+                    f"{datetime.now()} | INFO | Request received | Client IP Address: {client_address[0]} |"
+                    f"Client Port: {client_address[1]}\n"
+                )
+            else:
+                log_file.write(
+                    f"{datetime.now()} | Connection Timeout <Active Connections {connection_count}> | Client IP "
+                    f"Address: {client_address[0]} | Client Port: {client_address[1]}\n"
+                )
         else:
             log_file.write(
-                f"{datetime.now()} | INFO | Connection Timeout <Active Connections {connection_count}> | Client IP "
-                f"Address: {client_address[0]} | Client Port: {client_address[1]}\n"
+                f"{datetime.now()} | Establishing new connection <Active Connections {connection_count}> | "
+                f"Client IP Address: {client_address[0]} |Client Port: {client_address[1]}\n"
             )
         log_file.flush()  # Ensure log entry is written immediately
 
@@ -129,8 +133,8 @@ def process_message(msg: str, clientSocket, client_address):
     method, path, content_type, request_body = parse_message(msg)  # Parse the request
 
     # Start a new thread to log the request
-    thread = threading.Thread(target=write_to_log_file, args=(client_address, method,))
-    thread.start()
+    logger = threading.Thread(target=write_to_log_file, args=(client_address,))
+    logger.start()
 
     # Process GET requests
     if method == 'GET':
@@ -185,34 +189,45 @@ def process_message(msg: str, clientSocket, client_address):
         prepare_response(status_code, content_type, '', clientSocket)
 
     # Wait for the logging thread to finish before exiting
-    thread.join()
+    logger.join()
 
 
 def receive_data(client_socket, client_address):
     global connection_count
+
+    with count_lock:
+        connection_count += 1
+
+    logger = threading.Thread(target=write_to_log_file, args=(client_address, True))
+    logger.start()
+
     try:
         while True:
-            client_socket.settimeout(total_time/connection_count)
-            # print(f"given timeout is {total_time/connection_count}")
+            if connection_count == 0:
+                new_timeout = total_time
+            else:
+                new_timeout = total_time / connection_count
+
+            client_socket.settimeout(new_timeout)
+
             try:
-                start = time.time()
                 chunk = client_socket.recv(2048)
-                
                 if not chunk:
                     break  # No more data, exit the loop
-                thread = threading.Thread(target=process_message, args=(chunk, connectionSocket, addr))
-                thread.start()
+
+                logger = threading.Thread(target=process_message, args=(chunk, connectionSocket, addr))
+                logger.start()
             except TimeoutError:
-                end = time.time()
-                # print(f"Timeout hap {end-start}")
                 client_socket.close()
                 with count_lock:
                     connection_count -= 1
+                write_to_log_file(client_address, False, True)
                 return
     except ConnectionResetError:
         with count_lock:
             connection_count -= 1
-            write_to_log_file(client_address) 
+        write_to_log_file(client_address, False, True)
+        logger.join()
 
 
 # Main server loop to handle incoming connections
@@ -229,8 +244,6 @@ if __name__ == '__main__':
     # Accept connections and process each in a new thread
     while True:
         connectionSocket, addr = serverSocket.accept()  # Accept a new client connection
-        with count_lock:
-            connection_count += 1
         # message = connectionSocket.recv(2048).decode()  # Receive the request message
         thread = threading.Thread(target=receive_data, args=(connectionSocket, addr))
         thread.start()
