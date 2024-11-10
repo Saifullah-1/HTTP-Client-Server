@@ -4,36 +4,9 @@ from sys import argv
 from socket import *
 from datetime import datetime
 
-# Open the log file in append mode for storing logs
-log_file = open('root/log.txt', 'a')
-lock = threading.Lock()  # Initialize a lock for thread-safe logging
+count_lock = threading.Lock()
 connection_count = 0
 total_time = 20
-count_lock = threading.Lock()
-
-
-# Function to write log entries to the log file
-def write_to_log_file(client_address, new_connection=False, is_closed=False):
-    # Ensure only one thread writes to the log at a time
-    with lock:
-        # Log request details if a method is provided
-        if not new_connection:
-            if not is_closed:
-                log_file.write(
-                    f"{datetime.now()} | INFO | Request received | Client IP Address: {client_address[0]} |"
-                    f"Client Port: {client_address[1]}\n"
-                )
-            else:
-                log_file.write(
-                    f"{datetime.now()} | Connection Timeout <Active Connections {connection_count}> | Client IP "
-                    f"Address: {client_address[0]} | Client Port: {client_address[1]}\n"
-                )
-        else:
-            log_file.write(
-                f"{datetime.now()} | Establishing new connection <Active Connections {connection_count}> | "
-                f"Client IP Address: {client_address[0]} |Client Port: {client_address[1]}\n"
-            )
-        log_file.flush()  # Ensure log entry is written immediately
 
 
 # Function to determine content type based on file extension
@@ -69,8 +42,6 @@ def prepare_response(status_code, content_type, content, clientSocket):
     response += f'Content-Type: {content_type}\r\n'
     response += '\r\n'  # Blank line to separate headers and body
 
-    print(">>>> Response Sent", response, sep='\n')
-
     # Send response differently based on content type
     if 'image' not in content_type:
         response += content  # Append content directly for text responses
@@ -80,8 +51,6 @@ def prepare_response(status_code, content_type, content, clientSocket):
         if content :
             response += content 
         clientSocket.sendall(response)
-    
-    print(content)
 
 
 # Function to parse an HTTP request message
@@ -95,7 +64,7 @@ def parse_message(msg):
 
     print()
     print("<<<< Request Received")
-    print(header, body, type(body), sep='\r\n')
+    print(header, body, sep='\r\n')
     print()
 
     lines = header.split('\r\n')  # Split message into lines
@@ -117,25 +86,12 @@ def parse_message(msg):
             content_type = line.split(' ')[-1]  # Extract content type
             break
 
-    # # Extract the request body (if any) after the blank line
-    # try:
-    #     idx = lines.index('')
-    #     request_body = '\n'.join(lines[idx + 1:])
-    # except ValueError:
-    #     request_body = ''  # Nobody present
-
     return method, path, content_type, body
 
 
 # Function to process incoming requests
-def process_message(msg: str, clientSocket, client_address):
-    global connection_count
-
+def process_message(msg: str, clientSocket):
     method, path, content_type, request_body = parse_message(msg)  # Parse the request
-
-    # Start a new thread to log the request
-    logger = threading.Thread(target=write_to_log_file, args=(client_address,))
-    logger.start()
 
     # Process GET requests
     if method == 'GET':
@@ -192,46 +148,31 @@ def process_message(msg: str, clientSocket, client_address):
         status_code = '200 OK'
         prepare_response(status_code, content_type, '', clientSocket)
 
-    # Wait for the logging thread to finish before exiting
-    logger.join()
 
-
-def receive_data(client_socket, client_address):
+def receive_data(client_socket):
     global connection_count
 
     with count_lock:
         connection_count += 1
 
-    logger = threading.Thread(target=write_to_log_file, args=(client_address, True))
-    logger.start()
-
-    try:
-        while True:
-            if connection_count == 0:
-                new_timeout = total_time
-            else:
-                new_timeout = total_time / connection_count
-
-            client_socket.settimeout(new_timeout)
-
-            try:
-                chunk = client_socket.recv(1024*100)
-                if not chunk:
-                    break  # No more data, exit the loop
-
-                logger = threading.Thread(target=process_message, args=(chunk, connectionSocket, addr))
-                logger.start()
-            except TimeoutError:
-                client_socket.close()
+    while True:
+        try:
+            chunk = client_socket.recv(1024 * 100)
+            client_socket.settimeout(total_time / connection_count)
+            if not chunk:
                 with count_lock:
                     connection_count -= 1
-                write_to_log_file(client_address, False, True)
-                return
-    except ConnectionResetError:
-        with count_lock:
-            connection_count -= 1
-        write_to_log_file(client_address, False, True)
-        logger.join()
+                break  # No more data, exit the loop
+
+            process_message(chunk, client_socket)
+        except TimeoutError:
+            with count_lock:
+                connection_count -= 1
+            return
+        except ConnectionResetError:
+            with count_lock:
+                connection_count -= 1
+            return
 
 
 # Main server loop to handle incoming connections
@@ -246,9 +187,10 @@ if __name__ == '__main__':
     serverSocket.listen(5)  # Listen for incoming connections (max queue of 5)
 
     # Accept connections and process each in a new thread
-    while True:
-        connectionSocket, addr = serverSocket.accept()  # Accept a new client connection
-        # message = connectionSocket.recv(2048).decode()  # Receive the request message
-        thread = threading.Thread(target=receive_data, args=(connectionSocket, addr))
-        thread.start()
-        # Start a new thread to process the request
+    try:
+        while True:
+            connectionSocket, addr = serverSocket.accept()  # Accept a new client connection
+            thread = threading.Thread(target=receive_data, args=(connectionSocket,))
+            thread.start()
+    except KeyboardInterrupt:
+        serverSocket.close()
