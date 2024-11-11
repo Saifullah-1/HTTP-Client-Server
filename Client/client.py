@@ -8,10 +8,9 @@ def send_request(line):
     # Parsing the command and get the method, path, host, and port
     request = form_request(method, path, file_type(path))
     # Forming the request
-    print(">>>> Request Sent", request, sep='\n')
-
+    # print(">>>> Request Sent", request, sep='\n')
     sock.send(request)
-    # Send the whole request (may be divided)
+    # Send the whole request (maybe divided)
     response = sock.recv(2048)
 
     if method == "POST":
@@ -48,7 +47,7 @@ def send_request(line):
             mode = "wb"
             # if the file is an image, open it in binary mode
         saved_file_path = path.split("/")[-1]
-        file = open(saved_file_path, mode)
+        file = open(f"root/{saved_file_path}", mode)
         # open the file to write the body in it in case of GET request
 
         try:
@@ -57,7 +56,6 @@ def send_request(line):
         except UnicodeDecodeError:
             body = body
 
-        print(body)
         # printing the received data
         file.write(body)
         # write to the file to store the received data
@@ -99,7 +97,7 @@ def read_posted_file(file_path, type):
     
     try:
         # open the file and read its contents
-        file = open(file_path, mode)
+        file = open(f"root/{file_path}", mode)
         data = file.read()
         file.close()
     except:
@@ -118,7 +116,9 @@ def form_request(method, path, type):
     request = f"{method} /{file_name} HTTP/1.1\r\n"
     if method == "POST":
         # in POST, the request should contain the content-type header and the body should be the content to be uploaded to the server
-        request += (f"Content-Type: {type}\r\n\r\n")
+        request += f"Content-Type: {type}\r\n"
+        request += "\r\n"
+        request += ' '
         body = read_posted_file(path, type)
         if "image" not in type:
             # if the file is a text file, add the body then encode
