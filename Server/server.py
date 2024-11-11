@@ -77,7 +77,7 @@ def prepare_response(status_code, content_type, content, client_socket):
 
     headers = generate_headers(status_code, content_type, len(content))
     response = headers
-    response += '\r\n'  # Blank line to separate headers and body
+    # response += '\r\n'  # Blank line to separate headers and body
 
     # Append content for text responses or concatenate in binary for images
     if 'image' not in content_type:
@@ -87,10 +87,13 @@ def prepare_response(status_code, content_type, content, client_socket):
         response = response.encode()
         if content:
             response += content  # Append content for binary
+        # print("====" * 10)
+        # print("Response: ", response)
+        # print("====" * 10)
         client_socket.sendall(response)
 
 
-def parse_message(msg):
+def parse_message(msg, client_socket):
     """
     Parses an HTTP request message and extracts its components.
 
@@ -110,12 +113,6 @@ def parse_message(msg):
     # Split message into header and body
     header, body = msg.split(b'\r\n\r\n')
     header = header.decode("UTF-8")
-    try:
-        body = body.decode("UTF-8")
-    except UnicodeDecodeError:
-        print("Binary data (possibly an image) received in the body.")
-
-    print("<<<< Request Received\n", header, sep='\r\n')
 
     # Split header into lines and extract components
     lines = header.split('\r\n')
@@ -123,13 +120,27 @@ def parse_message(msg):
     method = request_line[0]
     path = request_line[1]
 
-    # Extract 'Content-Type' header if present
     content_type = ''
+    content_length = 0
     for line in lines[1:]:
         if line.startswith("Content-Type"):
-            content_type = line.split(' ')[-1]
-            break
+            content_type = line.split(' ')[-1]  # Extract content type
+        elif line.startswith("Content-Length"):
+            content_length = int(line.split(' ')[-1])  # Extract content length
 
+    if method == 'POST':
+        content_length -= len(body)
+        if content_length > 0:
+            additional_data = client_socket.recv(content_length)
+            body += additional_data
+
+    try:
+        body = body.decode("UTF-8")
+    except UnicodeDecodeError:
+        print("Binary data (possibly an image) received in the body.")
+
+    print("<<<< Request Received", header, sep='\r\n')
+    print()
     return method, path, content_type, body
 
 
@@ -147,7 +158,7 @@ def process_message(msg: bytes, client_socket):
     Raises:
         FileNotFoundError: If the requested file cannot be found on the server.
     """
-    method, path, content_type, request_body = parse_message(msg)
+    method, path, content_type, request_body = parse_message(msg, client_socket)
 
     if method == 'GET':
         file_name = path.split('/')[-1]
@@ -209,7 +220,7 @@ def receive_data(client_socket):
     while True:
         try:
             # Set receive buffer and timeout based on active connections
-            chunk = client_socket.recv(1024 * 100)
+            chunk = client_socket.recv(1024 * 10)
             client_socket.settimeout(total_time / connection_count)
             if not chunk:
                 with count_lock:

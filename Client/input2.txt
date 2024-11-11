@@ -1,2 +1,1 @@
-client_post log.txt 123 123
 client_get test.txt 123 123
