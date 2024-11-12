@@ -41,7 +41,7 @@ def test(request, requests_count):
 
 
 if __name__ == '__main__':
-    request_counts = [5, 10, 20, 50, 70]
+    request_counts = [5, 10, 20, 30, 50, 70]
     average_rrts = []
 
     for count in request_counts:

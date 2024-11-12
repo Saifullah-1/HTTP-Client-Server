@@ -15,7 +15,7 @@ def send_request(line):
         # If the request is empty, it means the file isn't found, so return and continue serving the next commands in the file
 
     # print(">>>> Request Sent", request, sep='\n')
-    sock.send(request)
+    sock.sendall(request)
     # Send the whole request (maybe divided)
     response = sock.recv(2048)
 
@@ -29,7 +29,8 @@ def send_request(line):
         status = status.decode("UTF-8")
         # Splitting the response into status line and body then decode the status line
         if status.split("\r\n")[0].split(" ")[1] == "404":
-            print("File not found.")
+            print("<<<< Response Received", status.split("\r\n")[0], sep='\n')
+            print()
             return
             # If file isn't found on the server, return and continue serving the next commands in the file
         print("<<<< Response Received", status.split("\r\n")[0], sep='\n')

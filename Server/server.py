@@ -139,7 +139,7 @@ def parse_message(msg, client_socket):
     except UnicodeDecodeError:
         print("Binary data (possibly an image) received in the body.")
 
-    print("<<<< Request Received", header, sep='\r\n')
+    print("<<<< Request Received", header, sep='\n')
     print()
     return method, path, content_type, body
 
@@ -198,7 +198,7 @@ def process_message(msg: bytes, client_socket):
         prepare_response(status_code, content_type, '', client_socket)
 
 
-def receive_data(client_socket):
+def receive_data(client_socket, clientAddress):
     """
     Receives data from the client socket and processes each message.
 
@@ -220,8 +220,8 @@ def receive_data(client_socket):
     while True:
         try:
             # Set receive buffer and timeout based on active connections
-            chunk = client_socket.recv(1024 * 10)
             client_socket.settimeout(total_time / connection_count)
+            chunk = client_socket.recv(1024 * 10)
             if not chunk:
                 with count_lock:
                     connection_count -= 1
@@ -232,6 +232,7 @@ def receive_data(client_socket):
             with count_lock:
                 connection_count -= 1
             return
+    print(f"Client {clientAddress} timeout")
 
 
 if __name__ == '__main__':
@@ -250,11 +251,12 @@ if __name__ == '__main__':
     serverSocket.settimeout(None)
     serverSocket.bind(('', serverPort))
     serverSocket.listen(5)
-
+    print(f"Server is running on port {serverPort}")
     try:
         while True:
             connectionSocket, addr = serverSocket.accept()
-            thread = threading.Thread(target=receive_data, args=(connectionSocket,))
+            thread = threading.Thread(target=receive_data, args=(connectionSocket, addr,))
             thread.start()
     except KeyboardInterrupt:
         serverSocket.close()
+        exit(0)
